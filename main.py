@@ -7,7 +7,7 @@ from typing import List
 
 app = FastAPI()
 
-# ✅ Middleware CORS para permitir llamadas desde frontend externo
+# Middleware CORS para permitir llamadas desde frontend externo
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # En producción cambia esto a ["https://tudominio.com"]
@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🧠 Almacenamiento temporal de sesiones en memoria
+# Almacenamiento temporal de sesiones en memoria
 chat_sessions = {}
 
 class MessageIn(BaseModel):
@@ -26,6 +26,10 @@ class MessageIn(BaseModel):
 class MessageOut(BaseModel):
     sender: str  # "user" o "bot"
     text: str
+
+@app.get("/")
+def root():
+    return {"message": "Middleware FastAPI está activo"}
 
 @app.post("/chat", response_model=List[MessageOut])
 def handle_message(msg: MessageIn):
