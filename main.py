@@ -4,19 +4,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+import requests
+from salesforce import authenticate_salesforce  # importar tu función
 
 app = FastAPI()
 
 # Middleware CORS para permitir llamadas desde frontend externo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción cambia esto a ["https://tudominio.com"]
+    allow_origins=["*"],  # Cambiar en producción
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Almacenamiento temporal de sesiones en memoria
+# Almacenamiento temporal de sesiones en memoria (opcional)
 chat_sessions = {}
 
 class MessageIn(BaseModel):
@@ -33,26 +35,47 @@ def root():
 
 @app.post("/chat", response_model=List[MessageOut])
 def handle_message(msg: MessageIn):
-    # Obtener o crear la sesión
+    # --- Autenticar en Salesforce ---
+    try:
+        access_token, instance_url = authenticate_salesforce()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error autenticando en Salesforce: {str(e)}")
+
+    # --- Preparar payload para Salesforce REST API ---
+    payload = {
+        "sessionId": msg.session_id,
+        "userName": "Cliente desde Middleware",
+        "direction": "IN",
+        "message": msg.text,
+        "senderName": "Cliente",
+        "channel": "Web"
+    }
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    # --- Enviar mensaje a Salesforce ---
+    try:
+        url = f"{instance_url}/services/apexrest/chatWebhook"
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error enviando mensaje a Salesforce: {str(e)}")
+
+    # --- Guardar en memoria local la conversación (opcional) ---
     if msg.session_id not in chat_sessions:
         chat_sessions[msg.session_id] = []
 
-    # Guardar el mensaje del usuario
     chat_sessions[msg.session_id].append({
         "sender": "user",
         "text": msg.text
     })
 
-    # Lógica simulada del bot
-    user_text = msg.text.lower()
-    if "hola" in user_text:
-        bot_text = "¡Hola! ¿En qué puedo ayudarte?"
-    elif "precio" in user_text:
-        bot_text = "Nuestros precios varían según el producto. ¿Qué necesitas?"
-    else:
-        bot_text = "Lo siento, no entendí eso. ¿Puedes reformular tu pregunta?"
+    # Respuesta simulada bot (puedes integrar lógica real aquí)
+    bot_text = "Mensaje recibido y enviado a Salesforce."
 
-    # Guardar la respuesta del bot
     chat_sessions[msg.session_id].append({
         "sender": "bot",
         "text": bot_text
