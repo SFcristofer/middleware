@@ -75,7 +75,7 @@ def handle_message(msg: MessageIn):
         "sender": "user",
         "text": msg.text
     })
-
+ 
     # Respuesta simulada bot (puedes integrar lógica real aquí)
     bot_text = "Mensaje recibido y enviado a Salesforce."
 
