@@ -5,14 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import requests
-from salesforce import authenticate_salesforce  # importar tu función
+from salesforce import authenticate_salesforce, get_open_session, create_chat_session, create_chat_message
 
 app = FastAPI()
 
 # Middleware CORS para permitir llamadas desde frontend externo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cambiar en producción
+    allow_origins=["*"],  # Cambiar en producción por el dominio real
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +24,8 @@ chat_sessions = {}
 class MessageIn(BaseModel):
     session_id: str
     text: str
+    user_name: str = "Cliente desde Middleware"  # Por defecto, puedes hacer que lo envíe el cliente
+    channel: str = "Web"  # Puedes parametrizar para usar "Messenger" u otro canal
 
 class MessageOut(BaseModel):
     sender: str  # "user" o "bot"
@@ -43,12 +45,13 @@ def handle_message(msg: MessageIn):
 
     # --- Preparar payload para Salesforce REST API ---
     payload = {
-        "sessionId": msg.session_id,
-        "userName": "Cliente desde Middleware",
-        "direction": "IN",
+        # sessionId puedes enviarlo o dejar vacío para que Salesforce cree nueva sesión
+        "sessionId": msg.session_id if msg.session_id else None,
+        "userName": msg.user_name,
+        "direction": "IN",  # mensaje entrante (cliente a agente)
         "message": msg.text,
-        "senderName": "Cliente",
-        "channel": "Web"
+        "senderName": msg.user_name,
+        "channel": msg.channel
     }
 
     headers = {
